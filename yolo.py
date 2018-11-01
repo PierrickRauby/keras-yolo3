@@ -138,16 +138,16 @@ class YOLO(object):
             label = '{} {:.2f}'.format(predicted_class, score)
             draw = ImageDraw.Draw(image)
             label_size = draw.textsize(label, font)
-
-            top, left, bottom, right = box
+            # Here is where the classes output are used. 
+            top, left, bottom, right = box #recupere les valeurs du format de la box
             top = max(0, np.floor(top + 0.5).astype('int32'))
             left = max(0, np.floor(left + 0.5).astype('int32'))
             bottom = min(image.size[1], np.floor(bottom + 0.5).astype('int32'))
             right = min(image.size[0], np.floor(right + 0.5).astype('int32'))
-            print(label, (left, top), (right, bottom))
+            print(label, (left, top), (right, bottom)) #label contien le score ainsi que la classe predite 
 
             if top - label_size[1] >= 0:
-                text_origin = np.array([left, top - label_size[1]])
+                text_origin = np.array([left, top - label_size[1]]) #prepare le label sur le mettre sur l'image
             else:
                 text_origin = np.array([left, top + 1])
 
@@ -156,7 +156,7 @@ class YOLO(object):
                 draw.rectangle(
                     [left + i, top + i, right - i, bottom - i],
                     outline=self.colors[c])
-            draw.rectangle(
+            draw.rectangle( #dessine l'image 
                 [tuple(text_origin), tuple(text_origin + label_size)],
                 fill=self.colors[c])
             draw.text(text_origin, label, fill=(0, 0, 0), font=font)
@@ -187,7 +187,7 @@ def detect_video(yolo, video_path, output_path=""):
     fps = "FPS: ??"
     prev_time = timer()
     while True:
-        return_value, frame = vid.read()
+        return_value, frame = vid.read() #no test on return_value
         image = Image.fromarray(frame)
         image = yolo.detect_image(image)
         result = np.asarray(image)
@@ -195,7 +195,8 @@ def detect_video(yolo, video_path, output_path=""):
         exec_time = curr_time - prev_time
         prev_time = curr_time
         accum_time = accum_time + exec_time
-        curr_fps = curr_fps + 1
+        curr_fps=round(1/exec_time*100)/100
+        # curr_fps = curr_fps + 1
         if accum_time > 1:
             accum_time = accum_time - 1
             fps = "FPS: " + str(curr_fps)
