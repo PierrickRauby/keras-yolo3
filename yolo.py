@@ -244,25 +244,29 @@ def detect_video(yolo, video_path, frame_ratio, output_path=""): #output path wi
         #loop over all frames of the video 
         while True:
             frame_counter+=1
-            return_value, frame = vid.read() #no test on return_value, maybe a way to detect the end of the video
-            if (frame_ratio_inverted==dont_skip_frame): #I analyze the frame
-                print('\n------')
-                print('Frame number ' + str(frame_counter)+' at time ' + str(frame_counter/fps))
-                image = Image.fromarray(frame)
-                image,classified = yolo.detect_image(image) #classified is the list of object detected in the image
-                # print(classified) #the list of class class, the score and the x,y of the ALL object detected in the frame
-                for machine in machine_list: #update the availability of all machines
-                    machine.check_availability_machine(classified) 
-                    file_writer.writerow([frame_counter,frame_counter/fps,machine.name,machine.status])
-                    status_as_string=' available' if (machine.status==1) else ' occupied'
-                    print('\t'+machine.name+" is "+ status_as_string)
-                if cv2.waitKey(1) & 0xFF == ord('q'): #stop condition, have to check if working 
-                    break
-                dont_skip_frame=0
-                print('------')
-            else: # I just skip the frame
-                dont_skip_frame+=1
-                if cv2.waitKey(1) & 0xFF == ord('q'): #stop condition, have to check if working 
-                    break    
+            return_value, frame = vid.read() #no test on return_value, maybe a way tso detect the end of the video
+            if return_value:
+                if (frame_ratio_inverted==dont_skip_frame): #I analyze the frame
+                    print('\n------')
+                    print('Frame number ' + str(frame_counter)+' at time ' + str(frame_counter/fps))
+                    image = Image.fromarray(frame)
+                    image,classified = yolo.detect_image(image) #classified is the list of object detected in the image
+                    # print(classified) #the list of class class, the score and the x,y of the ALL object detected in the frame
+                    for machine in machine_list: #update the availability of all machines
+                        machine.check_availability_machine(classified) 
+                        file_writer.writerow([frame_counter,frame_counter/fps,machine.name,machine.status])
+                        status_as_string=' available' if (machine.status==1) else ' occupied'
+                        print('\t'+machine.name+" is "+ status_as_string)
+                    if cv2.waitKey(1) & 0xFF == ord('q'): #stop condition, have to check if working 
+                        break
+                    dont_skip_frame=0
+                    print('------')
+                else: # I just skip the frame
+                    dont_skip_frame+=1
+                    if cv2.waitKey(1) & 0xFF == ord('q'): #stop condition, have to check if working 
+                        break  
+            else:
+                file_writer.writerow([frame_counter,frame_counter/fps,'ERROR READING FRAME','ERROR READING FRAME'])
+            if (frame_counter==number_frame):
+                break
     yolo.close_session()
-
