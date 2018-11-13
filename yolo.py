@@ -4,13 +4,9 @@ Class definition of YOLO_v3 style detection model on image and video
 """
 
 import colorsys
-import os
 from timeit import default_timer as timer
-
 import numpy as np
-import csv
-import pandas as pd
-import math
+import csv,os,math
 from keras import backend as K
 from keras.models import load_model
 from keras.layers import Input
@@ -162,7 +158,7 @@ class YOLO(object):
             boxed_image = letterbox_image(image, new_image_size)
         image_data = np.array(boxed_image, dtype='float32')
 
-        print(image_data.shape)
+        # print("format: "+str(image_data.shape))
         image_data /= 255.
         image_data = np.expand_dims(image_data, 0)  # Add batch dimension.
 
@@ -175,7 +171,6 @@ class YOLO(object):
             })
 
         # print( 'Found {} boxes for {}'.format(len(out_boxes), 'img')) 
-
         font = ImageFont.truetype(font='font/FiraMono-Medium.otf',
                     size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
         thickness = (image.size[0] + image.size[1]) // 300
@@ -215,7 +210,7 @@ class YOLO(object):
             del draw
 
         end = timer()
-        print(end - start)
+        print("\tComputation time: " + str(end - start))
         return image,classified #returns the image and the list of object 
 
     def close_session(self):
@@ -223,7 +218,6 @@ class YOLO(object):
 
 
 ##### VIDEO PROCESSING FUNCTION #####
-
 def detect_video(yolo, video_path, frame_ratio, output_path=""): #output path will be used for the csv, default the pwd
     import cv2
     vid = cv2.VideoCapture(video_path)
@@ -233,35 +227,42 @@ def detect_video(yolo, video_path, frame_ratio, output_path=""): #output path wi
     video_length=60*(video_metadata['video_end']-video_metadata['video_start']) #the length of the video in second
     number_frame= int(vid.get(cv2.CAP_PROP_FRAME_COUNT)) #not sure if this  value is meaningful
     fps=number_frame/video_length
-    print("the duration is "+ str(video_length))
-    print("number_frame is " + str(number_frame))
-    print("the fps is " + str(fps))
+    print('\n------')
+    print('Video metadata:')
+    print("\tduration: "+ str(video_length)+'s')
+    print("\tnumber_frame:" + str(number_frame))
+    print("\tfps:" + str(fps))
     dont_skip_frame=0
     frame_ratio_inverted=int(1/float(frame_ratio)-1)
     frame_counter=0
-    print('considering one frame every ' + str(frame_ratio_inverted+1)+" frames")
-    #open the resulting csv
-    file_to_write="/Users/pierrickrauby/Desktop/"+video_metadata['name']+".csv"
+    print('Considering 1 frame every ' + str(frame_ratio_inverted+1)+" frames")
+    #write the results in csv in present working directory
+    file_to_write=os.getcwd()+'/'+video_metadata['name']+".csv"
     with open(file_to_write, 'w', newline='') as csvfile:
         file_writer = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
         file_writer.writerow(['frame_number','time','machine_name','status'])
+        #loop over all frames of the video 
         while True:
             frame_counter+=1
             return_value, frame = vid.read() #no test on return_value, maybe a way to detect the end of the video
             if (frame_ratio_inverted==dont_skip_frame): #I analyze the frame
+                print('\n------')
+                print('Frame number ' + str(frame_counter)+' at time ' + str(frame_counter/fps))
                 image = Image.fromarray(frame)
                 image,classified = yolo.detect_image(image) #classified is the list of object detected in the image
-                print(classified) #the list of class class, the score and the x,y of the ALL object detected in the frame
+                # print(classified) #the list of class class, the score and the x,y of the ALL object detected in the frame
                 for machine in machine_list: #update the availability of all machines
                     machine.check_availability_machine(classified) 
                     file_writer.writerow([frame_counter,frame_counter/fps,machine.name,machine.status])
-                    print(machine.name+" is "+ str(machine.status)+ 'at time ' + str(frame_counter/fps))
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    status_as_string=' available' if (machine.status==1) else ' occupied'
+                    print('\t'+machine.name+" is "+ status_as_string)
+                if cv2.waitKey(1) & 0xFF == ord('q'): #stop condition, have to check if working 
                     break
                 dont_skip_frame=0
+                print('------')
             else: # I just skip the frame
                 dont_skip_frame+=1
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+                if cv2.waitKey(1) & 0xFF == ord('q'): #stop condition, have to check if working 
                     break    
     yolo.close_session()
 
