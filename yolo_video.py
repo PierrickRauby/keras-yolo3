@@ -55,13 +55,17 @@ if __name__ == '__main__':
         "--input", nargs='?', type=str,required=False,default='./path2your_video',
         help = "Video input path"
     )
-
+    parser.add_argument(
+        '--frame_ratio', type=float,
+        help='The frame ratio, nb of frame to analyze per frame in video'
+    )
+    
     parser.add_argument(
         "--output", nargs='?', type=str, default="",
         help = "[Optional] Video output path"
     )
-
-    FLAGS = parser.parse_args()
+    
+    FLAGS = parser.parse_args() #parses the command line argumen t
 
     if FLAGS.image:
         """
@@ -72,6 +76,6 @@ if __name__ == '__main__':
             print(" Ignoring remaining command line arguments: " + FLAGS.input + "," + FLAGS.output)
         detect_img(YOLO(**vars(FLAGS)))
     elif "input" in FLAGS:
-        detect_video(YOLO(**vars(FLAGS)), FLAGS.input, FLAGS.output)
+        detect_video(YOLO(**vars(FLAGS)), FLAGS.input, FLAGS.frame_ratio, FLAGS.output)
     else:
         print("Must specify at least video_input_path.  See usage with --help.")

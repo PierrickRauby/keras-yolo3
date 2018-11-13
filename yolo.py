@@ -8,6 +8,9 @@ import os
 from timeit import default_timer as timer
 
 import numpy as np
+import csv
+import pandas as pd
+import math
 from keras import backend as K
 from keras.models import load_model
 from keras.layers import Input
@@ -18,6 +21,54 @@ from yolo3.utils import letterbox_image
 import os
 from keras.utils import multi_gpu_model
 
+#### MACHINE DEFINITION PART #####
+class machine(object):
+    def __init__(self, name="",x_machine=0,y_machine=0,distance_min=0,status=1):
+        self.name=name
+        self.x_machine=x_machine
+        self.y_machine=y_machine
+        self.distance_min=distance_min
+        self.status=status#/!\ if status=1 the machine is free,
+                          # if status =0 the machine is occupied
+    def check_availability_machine(self,classified): #classified as the list of all object detected
+        self.status=1 #free the machine, it is going to be checked after 
+        for object_classified in classified: #for all object found in the image
+            if object_classified["label"]=="person": #if its a person I check the distance to the machine 
+                x_person=object_classified["x_box"]
+                y_person=object_classified["y_box"]
+                distance_to_machine=math.sqrt((x_person-self.x_machine)*(x_person-self.x_machine)+(y_person-self.y_machine)*(y_person-self.y_machine))
+                if (distance_to_machine<self.distance_min): #the person is too close to the machine => occupied
+                    self.status=0 # => machine occupied
+
+# Creating the machines
+band_saw=machine("band_saw",123,77,50,1)
+table_1=machine("table_1",136,55,50,1)
+machine_list=[band_saw,table_1] #the list of the machine in the camera, should be change to have a txt file to load instead
+
+#### AUXILIARY FUNCTIONS 
+#convert hours and minutes 
+def convert_hour_to_minute(hour_minute):
+    hours=int(hour_minute[0:2])
+    minutes=int(hour_minute[2:4])
+    return 60*hours+minutes
+
+#title parsing function 
+def parse_video_path(video_path):
+    video_name_format=video_path.split("/")[-1] #get the last element of the path as the name
+    if len(video_name_format.split("."))==2:
+        video_name, video_format=video_name_format.split(".",1) #get the format and the name splitting on the point
+        if len(video_name.split("_"))==6:
+            video_year,video_month,video_day,video_start,video_end,video_camera=video_name.split("_")
+            return {'name':video_name,'video_year':video_year,'video_month':video_month,'video_day':video_day,
+            'video_start':convert_hour_to_minute(video_start),'video_end':convert_hour_to_minute(video_end),'video_camera':video_camera}
+        else:
+            print("ERROR: file name illegal for timestamp and camera")
+    else: 
+        print("ERROR: file name illegal for video format")
+        return 0 
+
+
+#### YOLO CLASS ##### (contains the image inferance function )
 class YOLO(object):
     _defaults = {
         "model_path": 'model_data/yolo.h5',
@@ -28,7 +79,6 @@ class YOLO(object):
         "model_image_size" : (416, 416),
         "gpu_num" : 1,
     }
-
     @classmethod
     def get_defaults(cls, n):
         if n in cls._defaults:
@@ -101,7 +151,7 @@ class YOLO(object):
 
     def detect_image(self, image):
         start = timer()
-
+        classified=[]
         if self.model_image_size != (None, None):
             assert self.model_image_size[0]%32 == 0, 'Multiples of 32 required'
             assert self.model_image_size[1]%32 == 0, 'Multiples of 32 required'
@@ -124,7 +174,7 @@ class YOLO(object):
                 K.learning_phase(): 0
             })
 
-        print('Found {} boxes for {}'.format(len(out_boxes), 'img'))
+        # print( 'Found {} boxes for {}'.format(len(out_boxes), 'img')) 
 
         font = ImageFont.truetype(font='font/FiraMono-Medium.otf',
                     size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
@@ -144,7 +194,9 @@ class YOLO(object):
             left = max(0, np.floor(left + 0.5).astype('int32'))
             bottom = min(image.size[1], np.floor(bottom + 0.5).astype('int32'))
             right = min(image.size[0], np.floor(right + 0.5).astype('int32'))
-            print(label, (left, top), (right, bottom)) #label contien le score ainsi que la classe predite 
+            classified.append({"label":predicted_class,"score":score,
+                                "x_box":left+int((right-left)/2),"y_box":top+int((bottom-top)/2)}) #the list of all object of the image
+            # print(label, (left, top), (right, bottom)) #label contient le score ainsi que la classe predite 
 
             if top - label_size[1] >= 0:
                 text_origin = np.array([left, top - label_size[1]]) #prepare le label sur le mettre sur l'image
@@ -164,50 +216,52 @@ class YOLO(object):
 
         end = timer()
         print(end - start)
-        return image
+        return image,classified #returns the image and the list of object 
 
     def close_session(self):
         self.sess.close()
 
-def detect_video(yolo, video_path, output_path=""):
+
+##### VIDEO PROCESSING FUNCTION #####
+
+def detect_video(yolo, video_path, frame_ratio, output_path=""): #output path will be used for the csv, default the pwd
     import cv2
     vid = cv2.VideoCapture(video_path)
     if not vid.isOpened():
         raise IOError("Couldn't open webcam or video")
-    video_FourCC    = int(vid.get(cv2.CAP_PROP_FOURCC))
-    video_fps       = vid.get(cv2.CAP_PROP_FPS)
-    video_size      = (int(vid.get(cv2.CAP_PROP_FRAME_WIDTH)),
-                        int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT)))
-    isOutput = True if output_path != "" else False
-    if isOutput:
-        print("!!! TYPE:", type(output_path), type(video_FourCC), type(video_fps), type(video_size))
-        out = cv2.VideoWriter(output_path, video_FourCC, video_fps, video_size)
-    accum_time = 0
-    curr_fps = 0
-    fps = "FPS: ??"
-    prev_time = timer()
-    while True:
-        return_value, frame = vid.read() #no test on return_value
-        image = Image.fromarray(frame)
-        image = yolo.detect_image(image)
-        result = np.asarray(image)
-        curr_time = timer()
-        exec_time = curr_time - prev_time
-        prev_time = curr_time
-        accum_time = accum_time + exec_time
-        curr_fps=round(1/exec_time*100)/100
-        # curr_fps = curr_fps + 1
-        if accum_time > 1:
-            accum_time = accum_time - 1
-            fps = "FPS: " + str(curr_fps)
-            curr_fps = 0
-        cv2.putText(result, text=fps, org=(3, 15), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                    fontScale=0.50, color=(255, 0, 0), thickness=2)
-        cv2.namedWindow("result", cv2.WINDOW_NORMAL)
-        cv2.imshow("result", result)
-        if isOutput:
-            out.write(result)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+    video_metadata=parse_video_path(video_path)
+    video_length=60*(video_metadata['video_end']-video_metadata['video_start']) #the length of the video in second
+    number_frame= int(vid.get(cv2.CAP_PROP_FRAME_COUNT)) #not sure if this  value is meaningful
+    fps=number_frame/video_length
+    print("the duration is "+ str(video_length))
+    print("number_frame is " + str(number_frame))
+    print("the fps is " + str(fps))
+    dont_skip_frame=0
+    frame_ratio_inverted=int(1/float(frame_ratio)-1)
+    frame_counter=0
+    print('considering one frame every ' + str(frame_ratio_inverted+1)+" frames")
+    #open the resulting csv
+    file_to_write="/Users/pierrickrauby/Desktop/"+video_metadata['name']+".csv"
+    with open(file_to_write, 'w', newline='') as csvfile:
+        file_writer = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+        file_writer.writerow(['frame_number','time','machine_name','status'])
+        while True:
+            frame_counter+=1
+            return_value, frame = vid.read() #no test on return_value, maybe a way to detect the end of the video
+            if (frame_ratio_inverted==dont_skip_frame): #I analyze the frame
+                image = Image.fromarray(frame)
+                image,classified = yolo.detect_image(image) #classified is the list of object detected in the image
+                print(classified) #the list of class class, the score and the x,y of the ALL object detected in the frame
+                for machine in machine_list: #update the availability of all machines
+                    machine.check_availability_machine(classified) 
+                    file_writer.writerow([frame_counter,frame_counter/fps,machine.name,machine.status])
+                    print(machine.name+" is "+ str(machine.status)+ 'at time ' + str(frame_counter/fps))
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+                dont_skip_frame=0
+            else: # I just skip the frame
+                dont_skip_frame+=1
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break    
     yolo.close_session()
 

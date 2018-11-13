@@ -1,3 +1,6 @@
+*.avi
+*.mpeg
+*.mp4
 *.jpg
 *.png
 *.weights
