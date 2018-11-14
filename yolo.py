@@ -55,7 +55,7 @@ def parse_video_path(video_path):
         video_name, video_format=video_name_format.split(".",1) #get the format and the name splitting on the point
         if len(video_name.split("_"))==6:
             video_year,video_month,video_day,video_start,video_end,video_camera=video_name.split("_")
-            return {'name':video_name,'video_year':video_year,'video_month':video_month,'video_day':video_day,
+            return {'name':video_name,'format':video_format,'video_year':video_year,'video_month':video_month,'video_day':video_day,
             'video_start':convert_hour_to_minute(video_start),'video_end':convert_hour_to_minute(video_end),'video_camera':video_camera}
         else:
             print("ERROR: file name illegal for timestamp and camera")
@@ -237,7 +237,7 @@ def detect_video(yolo, video_path, frame_ratio, output_path=""): #output path wi
     frame_counter=0
     print('Considering 1 frame every ' + str(frame_ratio_inverted+1)+" frames")
     #write the results in csv in present working directory
-    file_to_write=os.getcwd()+'/'+video_metadata['name']+".csv"
+    file_to_write=os.getcwd()+'/'+video_metadata['name']+'_'+video_metadata['format']+".csv"
     with open(file_to_write, 'w', newline='') as csvfile:
         file_writer = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
         file_writer.writerow(['frame_number','time','machine_name','status'])
