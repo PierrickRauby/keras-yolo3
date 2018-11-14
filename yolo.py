@@ -1,4 +1,16 @@
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
+#----------------------------------------------------------------------
+# box_position.py
+#
+# read the machine position from config file and displays in the video
+#
+# Created: November 1, 2018 - P Rauby -- pierrick.rauby@gmail.com
+#
+# Modified:
+#   * November 14, 2018 - PR
+#           - add option to hide/display video output
+#----------------------------------------------------------------------
 """
 Class definition of YOLO_v3 style detection model on image and video
 """
@@ -7,6 +19,7 @@ import colorsys
 from timeit import default_timer as timer
 import numpy as np
 import csv,os,math
+import json
 from keras import backend as K
 from keras.models import load_model
 from keras.layers import Input
@@ -37,9 +50,22 @@ class machine(object):
                     self.status=0 # => machine occupied
 
 # Creating the machines
-band_saw=machine("band_saw",123,77,50,1)
-table_1=machine("table_1",136,55,50,1)
-machine_list=[band_saw,table_1] #the list of the machine in the camera, should be change to have a txt file to load instead
+def create_machine_from_file(file_path):
+    # from machine.json parsing and creating the machines 
+    config_file=open(file_path,'r') #open the config file for reading 
+    content=config_file.read() #get the content of the above openned config file 
+    parsed_content=json.loads(content)
+    machine_list=[]
+    for _machine_ in parsed_content:
+        # machine_dictionnary=parsed_content[machine]
+        # x_machine=int(machine_dictionnary['x_machine'])
+        machine_now=machine(parsed_content[_machine_]['machine_name'],
+                            int(parsed_content[_machine_]['x_machine']),
+                            int(parsed_content[_machine_]['y_machine']),
+                            int(parsed_content[_machine_]['distance_min']),
+                            int(parsed_content[_machine_]['status']))
+        machine_list.append(machine_now)
+    return machine_list
 
 #### AUXILIARY FUNCTIONS 
 #convert hours and minutes 
@@ -218,8 +244,13 @@ class YOLO(object):
 
 
 ##### VIDEO PROCESSING FUNCTION #####
-def detect_video(yolo, video_path, frame_ratio, output_path=""): #output path will be used for the csv, default the pwd
+def detect_video(yolo, video_path, frame_ratio,json_path,visual_display,output_path=""): #output path will be used for the csv, default the pwd
     import cv2
+    if(json_path==''):
+        print('Warning ! No Machine configuration provided')
+        machine_list=[]
+    else:
+        machine_list=create_machine_from_file(json_path)
     vid = cv2.VideoCapture(video_path)
     if not vid.isOpened():
         raise IOError("Couldn't open webcam or video")
