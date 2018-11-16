@@ -175,12 +175,15 @@ class YOLO(object):
         start = timer()
         classified=[]
         if self.model_image_size != (None, None):
-            print('je fais quelque chose avec ton image')
+            print('model image size: '+str(self.model_image_size))
             assert self.model_image_size[0]%32 == 0, 'Multiples of 32 required'
             assert self.model_image_size[1]%32 == 0, 'Multiples of 32 required'
-            boxed_image = letterbox_image(image, tuple(reversed(self.model_image_size)))
-        else:
-            print('je fais grave de la merde avec ton image')
+            
+            boxed_image = letterbox_image(image, tuple(reversed(self.model_image_size))) # il faut comprendre a quoi sert letter box
+            # nornalement je devrais pouvoir utiliser l'image en entier sans la rogner comme c'est fait pour le moment 
+
+        else: #cette partie n'est pas utilisee 
+            # print('je fais grave de la merde avec ton image')
             new_image_size = (image.width - (image.width % 32),
                               image.height - (image.height % 32))
             boxed_image = letterbox_image(image, new_image_size)
@@ -324,9 +327,10 @@ def detect_video(yolo, video_path, frame_ratio,json_path,visual_display,output_p
                     print('\n------')
                     print('Frame number ' + str(frame_counter)+' at time ' + str(frame_counter/fps))
                     image = Image.fromarray(frame)
+                    # print('before detect_image function: ' + image.shape)
                     image,classified = yolo.detect_image(image,machine_list,visual_display) #classified is the list of object detected in the image
-                    result = np.asarray(image)
-                    # print(classified) #the list of class class, the score and the x,y of the ALL object detected in the frame
+                    # print('after detect_image function: ' + image.shape)
+                    # result = np.asarray(image)
                     for machine in machine_list: #update the availability of all machines
                         machine.check_availability_machine(classified) 
                         file_writer.writerow([frame_counter,frame_counter/fps,machine.name,machine.status])
