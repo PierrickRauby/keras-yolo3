@@ -179,11 +179,9 @@ class YOLO(object):
             assert self.model_image_size[0]%32 == 0, 'Multiples of 32 required'
             assert self.model_image_size[1]%32 == 0, 'Multiples of 32 required'
             
-            boxed_image = letterbox_image(image, tuple(reversed(self.model_image_size))) # il faut comprendre a quoi sert letter box
-            # nornalement je devrais pouvoir utiliser l'image en entier sans la rogner comme c'est fait pour le moment 
+            boxed_image = letterbox_image(image, tuple(reversed(self.model_image_size)))
 
-        else: #cette partie n'est pas utilisee 
-            # print('je fais grave de la merde avec ton image')
+        else: #in our case the condition in the above if statement is true (the following is ignored)
             new_image_size = (image.width - (image.width % 32),
                               image.height - (image.height % 32))
             boxed_image = letterbox_image(image, new_image_size)
@@ -327,10 +325,9 @@ def detect_video(yolo, video_path, frame_ratio,json_path,visual_display,output_p
                     print('\n------')
                     print('Frame number ' + str(frame_counter)+' at time ' + str(frame_counter/fps))
                     image = Image.fromarray(frame)
-                    # print('before detect_image function: ' + image.shape)
+
                     image,classified = yolo.detect_image(image,machine_list,visual_display) #classified is the list of object detected in the image
-                    # print('after detect_image function: ' + image.shape)
-                    # result = np.asarray(image)
+                    result = np.asarray(image)
                     for machine in machine_list: #update the availability of all machines
                         machine.check_availability_machine(classified) 
                         file_writer.writerow([frame_counter,frame_counter/fps,machine.name,machine.status])
