@@ -61,8 +61,8 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        "--json_path", nargs='?', type=str,required=False,default='',
-        help = "The path to the .json file that describe the position of the machine in the video"
+        "--json_config_path", nargs='?', type=str,required=False,default='',
+        help = "The path to the .json file that describe the position of the machine in the video, see C4_config.json or C3_config.json for examples"
     )
 
     parser.add_argument(
@@ -86,6 +86,6 @@ if __name__ == '__main__':
             print(" Ignoring remaining command line arguments: " + FLAGS.input + "," + FLAGS.output)
         detect_img(YOLO(**vars(FLAGS)))
     elif "input" in FLAGS:
-        detect_video(YOLO(**vars(FLAGS)), FLAGS.input, FLAGS.frame_ratio,FLAGS.json_path,FLAGS.visual_display,FLAGS.output)
+        detect_video(YOLO(**vars(FLAGS)), FLAGS.input, FLAGS.frame_ratio,FLAGS.json_config_path,FLAGS.visual_display,FLAGS.output)
     else:
         print("Must specify at least video_input_path.  See usage with --help.")

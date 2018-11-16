@@ -171,23 +171,25 @@ class YOLO(object):
                 score_threshold=self.score, iou_threshold=self.iou)
         return boxes, scores, classes
 
-    def detect_image(self, image):
+    def detect_image(self, image,machine_list,visual_display):
         start = timer()
         classified=[]
         if self.model_image_size != (None, None):
+            print('je fais quelque chose avec ton image')
             assert self.model_image_size[0]%32 == 0, 'Multiples of 32 required'
             assert self.model_image_size[1]%32 == 0, 'Multiples of 32 required'
             boxed_image = letterbox_image(image, tuple(reversed(self.model_image_size)))
         else:
+            print('je fais grave de la merde avec ton image')
             new_image_size = (image.width - (image.width % 32),
                               image.height - (image.height % 32))
             boxed_image = letterbox_image(image, new_image_size)
         image_data = np.array(boxed_image, dtype='float32')
 
-        # print("format: "+str(image_data.shape))
+        print("format: "+str(image_data.shape))
+
         image_data /= 255.
         image_data = np.expand_dims(image_data, 0)  # Add batch dimension.
-
         out_boxes, out_scores, out_classes = self.sess.run(
             [self.boxes, self.scores, self.classes],
             feed_dict={
@@ -196,16 +198,33 @@ class YOLO(object):
                 K.learning_phase(): 0
             })
 
-        # print( 'Found {} boxes for {}'.format(len(out_boxes), 'img')) 
+        print( 'Found {} boxes for {}'.format(len(out_boxes), 'img')) 
         font = ImageFont.truetype(font='font/FiraMono-Medium.otf',
                     size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
         thickness = (image.size[0] + image.size[1]) // 300
-
+        # a partir de la j'ai l'image et je peux dessiner les cerles pour mes machines (fin je pense)
+        # dessin des machines sur l'image
+        if (visual_display):
+            for machine_to_draw in machine_list:
+                draw_machine = ImageDraw.Draw(image) #draw object for the selected machine
+                offset = int(machine_to_draw.distance_min/math.sqrt(2))
+                for i in range(thickness):
+                    draw_machine.ellipse(
+                        [(machine_to_draw.x_machine-offset) + i, (machine_to_draw.y_machine-offset) + i,
+                        (machine_to_draw.x_machine+offset) - i, (machine_to_draw.y_machine+offset) - i],
+                        outline='gold')
+                # if ((machine_to_draw.y_machine-offset) - label_size[1]) >= 0:
+                #     text_origin = np.array([left, top - label_size[1]]) #prepare le label sur le mettre sur l'image
+                # else:
+                #     text_origin = np.array([left, top + 1])
+                # draw.text(text_origin, label, fill=(0, 0, 0), font=font)
+                # for _machine_ in machine_list : #
+            del draw_machine
+        #itterate over all the classes found 
         for i, c in reversed(list(enumerate(out_classes))):
             predicted_class = self.class_names[c]
             box = out_boxes[i]
             score = out_scores[i]
-
             label = '{} {:.2f}'.format(predicted_class, score)
             draw = ImageDraw.Draw(image)
             label_size = draw.textsize(label, font)
@@ -225,14 +244,16 @@ class YOLO(object):
                 text_origin = np.array([left, top + 1])
 
             # My kingdom for a good redistributable image drawing library.
-            for i in range(thickness):
-                draw.rectangle(
-                    [left + i, top + i, right - i, bottom - i],
-                    outline=self.colors[c])
-            draw.rectangle( #dessine l'image 
-                [tuple(text_origin), tuple(text_origin + label_size)],
-                fill=self.colors[c])
-            draw.text(text_origin, label, fill=(0, 0, 0), font=font)
+            if (visual_display):
+                for i in range(thickness):
+                    draw.rectangle(
+                        [left + i, top + i, right - i, bottom - i],
+                        outline=self.colors[c])
+                draw.rectangle( #dessine l'image 
+                    [tuple(text_origin), tuple(text_origin + label_size)],
+                    fill=self.colors[c])
+                draw.text(text_origin, label, fill=(0, 0, 0), font=font)
+                # for _machine_ in machine_list : #
             del draw
 
         end = timer()
@@ -254,22 +275,44 @@ def detect_video(yolo, video_path, frame_ratio,json_path,visual_display,output_p
     vid = cv2.VideoCapture(video_path)
     if not vid.isOpened():
         raise IOError("Couldn't open webcam or video")
+    video_FourCC    = int(vid.get(cv2.CAP_PROP_FOURCC))
+    video_fps       = vid.get(cv2.CAP_PROP_FPS)
+    video_size      = (int(vid.get(cv2.CAP_PROP_FRAME_WIDTH)),
+                        int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+    isOutput = True if output_path != "" else False
+    if isOutput:
+        print("!!! TYPE:", type(output_path), type(video_FourCC), type(video_fps), type(video_size))
+        out = cv2.VideoWriter(output_path, video_FourCC, video_fps, video_size)
     video_metadata=parse_video_path(video_path)
     video_length=60*(video_metadata['video_end']-video_metadata['video_start']) #the length of the video in second
     number_frame= int(vid.get(cv2.CAP_PROP_FRAME_COUNT)) #not sure if this  value is meaningful
     fps=number_frame/video_length
+    dont_skip_frame=0
+    frame_ratio_inverted=int(1/float(frame_ratio)-1)
+    frame_counter=0
+    csv_file=os.getcwd()+'/'+video_metadata['name']+'_'+video_metadata['format']+".csv" #file to write the result of the analysis
+    log_file=os.getcwd()+'/'+video_metadata['name']+'_'+video_metadata['format']+"analysis_log.txt" #log file for the metadata
+    #displaying metadata
     print('\n------')
     print('Video metadata:')
     print("\tduration: "+ str(video_length)+'s')
     print("\tnumber_frame:" + str(number_frame))
-    print("\tfps:" + str(fps))
-    dont_skip_frame=0
-    frame_ratio_inverted=int(1/float(frame_ratio)-1)
-    frame_counter=0
+    print("\tfps:" + str(fps))    
     print('Considering 1 frame every ' + str(frame_ratio_inverted+1)+" frames")
-    #write the results in csv in present working directory
-    file_to_write=os.getcwd()+'/'+video_metadata['name']+'_'+video_metadata['format']+".csv"
-    with open(file_to_write, 'w', newline='') as csvfile:
+    print('metadata infor stored in: "'+log_file+'"')
+    print('analysis result stored in: "'+csv_file+'"')
+    #writting the metadata into a log file 
+    log_file_fd=open(log_file,'w')
+    log_file_fd.write('Video metadata:\n')
+    log_file_fd.write("\tduration: "+ str(video_length)+'s\n')
+    log_file_fd.write("\tnumber_frame:" + str(number_frame)+'\n')
+    log_file_fd.write("\tfps:" + str(fps)+'\n')
+    log_file_fd.write('Considering 1 frame every ' + str(frame_ratio_inverted+1)+" frames\n")
+    log_file_fd.write('metadata infor stored in: "'+log_file+'"\n')
+    log_file_fd.write('analysis result stored in: "'+csv_file+'"')
+    log_file_fd.close()
+    #write the analysis results in csv in present working directory
+    with open(csv_file, 'w', newline='') as csvfile:
         file_writer = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
         file_writer.writerow(['frame_number','time','machine_name','status'])
         #loop over all frames of the video 
@@ -281,13 +324,21 @@ def detect_video(yolo, video_path, frame_ratio,json_path,visual_display,output_p
                     print('\n------')
                     print('Frame number ' + str(frame_counter)+' at time ' + str(frame_counter/fps))
                     image = Image.fromarray(frame)
-                    image,classified = yolo.detect_image(image) #classified is the list of object detected in the image
+                    image,classified = yolo.detect_image(image,machine_list,visual_display) #classified is the list of object detected in the image
+                    result = np.asarray(image)
                     # print(classified) #the list of class class, the score and the x,y of the ALL object detected in the frame
                     for machine in machine_list: #update the availability of all machines
                         machine.check_availability_machine(classified) 
                         file_writer.writerow([frame_counter,frame_counter/fps,machine.name,machine.status])
                         status_as_string=' available' if (machine.status==1) else ' occupied'
                         print('\t'+machine.name+" is "+ status_as_string)
+                    # cv2.putText(result, text=fps, org=(3, 15), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                                # fontScale=0.50, color=(255, 0, 0), thickness=2)
+                    if (visual_display): #display the video if asked 
+                        cv2.namedWindow("result", cv2.WINDOW_NORMAL)
+                        cv2.imshow("result", result)
+                        if isOutput:
+                            out.write(result)
                     if cv2.waitKey(1) & 0xFF == ord('q'): #stop condition, have to check if working 
                         break
                     dont_skip_frame=0
