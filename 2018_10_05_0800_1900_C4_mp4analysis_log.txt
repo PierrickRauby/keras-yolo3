@@ -1,7 +1,0 @@
-Video metadata:
-	duration: 39600s
-	number_frame:277113
-	fps:6.9978030303030305
-Considering 1 frame every 10 frames
-metadata infor stored in: "/Users/pierrickrauby/Google_Drive/GeorgiaTech/GTA/Cours/CSE6242_Data_Visualisation/Project_repositories/keras-yolo3/2018_10_05_0800_1900_C4_mp4analysis_log.txt"
-analysis result stored in: "/Users/pierrickrauby/Google_Drive/GeorgiaTech/GTA/Cours/CSE6242_Data_Visualisation/Project_repositories/keras-yolo3/2018_10_05_0800_1900_C4_mp4.csv"
