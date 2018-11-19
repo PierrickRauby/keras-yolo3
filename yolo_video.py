@@ -75,7 +75,7 @@ if __name__ == '__main__':
         help = "[Optional] Video output path"
     )
     
-    FLAGS = parser.parse_args() #parses the command line argumen t
+    FLAGS = parser.parse_args() #parses the command line argument
 
     if FLAGS.image:
         """
