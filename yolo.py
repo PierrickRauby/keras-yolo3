@@ -30,40 +30,58 @@ from yolo3.utils import letterbox_image
 import os
 from keras.utils import multi_gpu_model
 
+
 #### MACHINE DEFINITION PART #####
 class machine(object):
-    def __init__(self, name="",x_machine=0,y_machine=0,distance_min=0,status=1):
+    def __init__(self, name="",x_machine=0,y_machine=0,distance_min=0,occupation_count=0,first_timeslot_index=0,current_timeslot_index=0,status=0):
         self.name=name
         self.x_machine=x_machine
         self.y_machine=y_machine
         self.distance_min=distance_min
-        self.status=status#/!\ if status=1 the machine is free,
-                          # if status =0 the machine is occupied
-    def check_availability_machine(self,classified): #classified as the list of all object detected
-        self.status=1 #free the machine, it is going to be checked after 
+        self.occupation_count=occupation_count #number of occupied frames
+        self.first_timeslot_index=first_timeslot_index
+        self.occupation_timeslot={1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0,11:0,12:0,13:0,14:0,
+                    15:0,16:0,17:0,18:0,19:0,20:0,21:0,22:0,23:0,24:0,25:0,26:0,27:0,
+                    28:0,29:0,30:0,31:0,32:0,33:0,34:0,35:0,36:0,37:0,38:0,39:0,40:0,
+                    41:0,42:0,43:0,44:0,45:0,46:0,47:0,48:0} #dictionnary of timeslot for a day
+        self.current_timeslot_index=first_timeslot_index
+        self.status=status#/!\ if status=0 the machine is free,
+                          # if status =1 the machine is occupied
+    def check_availability_machine(self,classified,image): #classified as the list of all object detected
+        self.status=0 #free the machine, it is going to be checked after 
         for object_classified in classified: #for all object found in the image
             if object_classified["label"]=="person": #if its a person I check the distance to the machine 
                 x_person=object_classified["x_box"]
                 y_person=object_classified["y_box"]
-                distance_to_machine=math.sqrt((x_person-self.x_machine)*(x_person-self.x_machine)+(y_person-self.y_machine)*(y_person-self.y_machine))
-                if (distance_to_machine<self.distance_min): #the person is too close to the machine => occupied
-                    self.status=0 # => machine occupied
+                distance_to_machine=math.sqrt((x_person-image.size[0]*self.x_machine)*(x_person-image.size[0]*self.x_machine)+(y_person-image.size[1]*self.y_machine)*(y_person-image.size[1]*self.y_machine))
+                if (distance_to_machine<(self.distance_min*math.sqrt(image.size[0]*image.size[0]+image.size[1]*image.size[1])/math.sqrt(2))): #the person is too close to the machine => occupied
+                    self.status=1 # => machine occupied
 
 # Creating the machines
-def create_machine_from_file(file_path):
+def create_machine_from_file(machine_file_path,video_metadata):
     # from machine.json parsing and creating the machines 
-    config_file=open(file_path,'r') #open the config file for reading 
+    config_file=open(machine_file_path,'r') #open the config file for reading 
     content=config_file.read() #get the content of the above openned config file 
     parsed_content=json.loads(content)
     machine_list=[]
     for _machine_ in parsed_content:
-        # machine_dictionnary=parsed_content[machine]
-        # x_machine=int(machine_dictionnary['x_machine'])
-        machine_now=machine(parsed_content[_machine_]['machine_name'],
-                            int(parsed_content[_machine_]['x_machine']),
-                            int(parsed_content[_machine_]['y_machine']),
-                            int(parsed_content[_machine_]['distance_min']),
-                            int(parsed_content[_machine_]['status']))
+        machine_now=machine(name=parsed_content[_machine_]['machine_name'],
+                            x_machine=float(parsed_content[_machine_]['x_machine']),
+                            y_machine=float(parsed_content[_machine_]['y_machine']),
+                            distance_min=float(parsed_content[_machine_]['distance_min']),
+                            first_timeslot_index=int(video_metadata['video_start']/30)+1, #first_timeslot index
+                            current_timeslot_index=int(video_metadata['video_start']/30)+1, #current_timeslot_index
+                            )
+        #getting the index of the first time slot of the video
+        print(machine_now.name)
+        print("        x is: "+str(machine_now.x_machine))
+        print("        y is: "+str(machine_now.y_machine))
+        print("        distance min is: "+str(machine_now.x_machine))
+        print("        occupation count  is: "+str(machine_now.occupation_count))
+        print("        first timeslot index is: "+ str(machine_now.first_timeslot_index))
+        print("        occupation timeslot is: "+str(machine_now.occupation_timeslot))
+        print('        current_timeslot_index is: '+ str(machine_now.current_timeslot_index))
+        print('        machine status is: '+ str(machine_now.status))
         machine_list.append(machine_now)
     return machine_list
 
@@ -175,7 +193,7 @@ class YOLO(object):
         start = timer()
         classified=[]
         if self.model_image_size != (None, None):
-            print('model image size: '+str(self.model_image_size))
+            # print('model image size: '+str(self.model_image_size))
             assert self.model_image_size[0]%32 == 0, 'Multiples of 32 required'
             assert self.model_image_size[1]%32 == 0, 'Multiples of 32 required'
             
@@ -208,18 +226,14 @@ class YOLO(object):
         if (visual_display):
             for machine_to_draw in machine_list:
                 draw_machine = ImageDraw.Draw(image) #draw object for the selected machine
-                offset = int(machine_to_draw.distance_min/math.sqrt(2))
+                offset = int(machine_to_draw.distance_min*math.sqrt(image.size[0]*image.size[0]+image.size[1]*image.size[1])/math.sqrt(2))
                 for i in range(thickness):
                     draw_machine.ellipse(
-                        [(machine_to_draw.x_machine-offset) + i, (machine_to_draw.y_machine-offset) + i,
-                        (machine_to_draw.x_machine+offset) - i, (machine_to_draw.y_machine+offset) - i],
+                        [(np.floor(0.5+image.size[0]*machine_to_draw.x_machine-offset).astype('int32')) + i,
+                        (np.floor(0.5+image.size[1]*machine_to_draw.y_machine-offset).astype('int32')) + i,
+                        (np.floor(0.5+image.size[0]*machine_to_draw.x_machine+offset).astype('int32')) - i, 
+                        (np.floor(0.5+image.size[1]*machine_to_draw.y_machine+offset).astype('int32')) - i],
                         outline='gold')
-                # if ((machine_to_draw.y_machine-offset) - label_size[1]) >= 0:
-                #     text_origin = np.array([left, top - label_size[1]]) #prepare le label sur le mettre sur l'image
-                # else:
-                #     text_origin = np.array([left, top + 1])
-                # draw.text(text_origin, label, fill=(0, 0, 0), font=font)
-                # for _machine_ in machine_list : #
             del draw_machine
         #itterate over all the classes found 
         for i, c in reversed(list(enumerate(out_classes))):
@@ -237,7 +251,6 @@ class YOLO(object):
             right = min(image.size[0], np.floor(right + 0.5).astype('int32'))
             classified.append({"label":predicted_class,"score":score,
                                 "x_box":left+int((right-left)/2),"y_box":top+int((bottom-top)/2)}) #the list of all object of the image
-            # print(label, (left, top), (right, bottom)) #label contient le score ainsi que la classe predite 
 
             if top - label_size[1] >= 0:
                 text_origin = np.array([left, top - label_size[1]]) #prepare le label sur le mettre sur l'image
@@ -268,11 +281,23 @@ class YOLO(object):
 ##### VIDEO PROCESSING FUNCTION #####
 def detect_video(yolo, video_path, frame_ratio,json_path,visual_display,output_path=""): #output path will be used for the csv, default the pwd
     import cv2
+    video_metadata=parse_video_path(video_path)
+    #prepare the time slot list as a list of frame separators:
+    timeslot=[0,1800,3600,5400,7200,9000,10800,12600,14400,16200,18000,19800,21600,
+            23400,25200,27000,28800,30600,32400,34200,36000,37800,39600,41400,
+            43200,45000,46800,48600,50400,52200,54000,55800,57600,59400,61200,
+            63000,64800,66600,6840070200,72000,73800,75600,77400,79200,81000,
+            82800,84600]
+    print('timeslot: '+ str(timeslot))
+    #removing timeslots that are not on the video from the timeslot list:
+    timeslot = [time-60*video_metadata['video_start'] for time in timeslot if ((time-60*video_metadata['video_start'])>0 and (time-60*video_metadata['video_start']) <= 60*(video_metadata['video_end']-video_metadata['video_start'])) ]
+    print('timeslot: '+ str(timeslot))
+
     if(json_path==''):
         print('Warning ! No Machine configuration provided')
         machine_list=[]
     else:
-        machine_list=create_machine_from_file(json_path)
+        machine_list=create_machine_from_file(json_path,video_metadata)
     vid = cv2.VideoCapture(video_path)
     if not vid.isOpened():
         raise IOError("Couldn't open webcam or video")
@@ -284,18 +309,24 @@ def detect_video(yolo, video_path, frame_ratio,json_path,visual_display,output_p
     if isOutput:
         print("!!! TYPE:", type(output_path), type(video_FourCC), type(video_fps), type(video_size))
         out = cv2.VideoWriter(output_path, video_FourCC, video_fps, video_size)
-    video_metadata=parse_video_path(video_path)
+    ### Variable definition for the analysis ###
     video_length=60*(video_metadata['video_end']-video_metadata['video_start']) #the length of the video in second
     number_frame= int(vid.get(cv2.CAP_PROP_FRAME_COUNT)) #not sure if this  value is meaningful
-    fps=number_frame/video_length
-    dont_skip_frame=0
-    frame_ratio_inverted=int(1/float(frame_ratio)-1)
-    frame_counter=0
-    csv_file=os.getcwd()+'/'+video_metadata['name']+'_'+video_metadata['format']+".csv" #file to write the result of the analysis
-    log_file=os.getcwd()+'/'+video_metadata['name']+'_'+video_metadata['format']+"analysis_log.txt" #log file for the metadata
+    fps=number_frame/video_length #number of frame per second on this video
+    dont_skip_frame=0 #count of the number of frame skiped, if egal to frame_ratio_inverted then analyze the frame else skip
+    frame_ratio_inverted=int(1/float(frame_ratio)-1) #to know the number of frame to skip based on the command line ration intup
+    frame_counter=0 #number of frame opened since the program start
+    frame_analyzed_in_timeslot=0 #counter of the number of fram
+    csv_file=os.getcwd()+'/'+video_metadata['name']+'_'+'frame'+".csv" #file to write the result of the analysis
+    csv_file_timeslot=os.getcwd()+'/'+video_metadata['name']+'_'+"timeslot.csv" #file to write the timeslot results
+    log_file=os.getcwd()+'/'+video_metadata['name']+'_'+"analysis_log.txt" #log file for the metadata
+    ### End of variable definition ###
     #displaying metadata
     print('\n------')
     print('Video metadata:')
+    print("\tstart: "+ str(60*video_metadata['video_start'])+'s')
+    print("\tstart: "+ str(60*video_metadata['video_end'])+'s')
+    print("\tduration: "+ str(video_length)+'s')
     print("\tduration: "+ str(video_length)+'s')
     print("\tnumber_frame:" + str(number_frame))
     print("\tfps:" + str(fps))    
@@ -312,29 +343,60 @@ def detect_video(yolo, video_path, frame_ratio,json_path,visual_display,output_p
     log_file_fd.write('metadata infor stored in: "'+log_file+'"\n')
     log_file_fd.write('analysis result stored in: "'+csv_file+'"')
     log_file_fd.close()
+
     #write the analysis results in csv in present working directory
     with open(csv_file, 'w', newline='') as csvfile:
         file_writer = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
         file_writer.writerow(['frame_number','time','machine_name','status'])
         #loop over all frames of the video 
+        with open(csv_file_timeslot, 'a', newline='') as csvfile:
+            file_writer_timeslot = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+            file_writer_timeslot.writerow(['timeslot','machine_name','machine_status'])
         while True:
             frame_counter+=1
             return_value, frame = vid.read() #no test on return_value, maybe a way tso detect the end of the video
+            if(frame_counter/fps>timeslot[0]): #si le temps ecoulé de l'analyse est superieur a mon time slot alors je reinitialise le timeslot 
+                print('NEXT TIME SLOT')
+                for machine in machine_list: #update the availability of all machines
+                    machine.occupation_timeslot[machine.current_timeslot_index]=100*machine.occupation_count/frame_analyzed_in_timeslot # Calculation of the occupation ratio as the mean over the timeslot
+                    with open(csv_file_timeslot, 'a', newline='') as csvfile:
+                        file_writer_timeslot = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                        file_writer_timeslot.writerow([machine.current_timeslot_index,machine.name,machine.occupation_timeslot[machine.current_timeslot_index]])
+                    machine.current_timeslot_index+=1 #working the next timeslot
+                    machine.occupation_count=0
+                timeslot.pop(0) #deleting the first element of the timeslot list. 
+                frame_analyzed_in_timeslot=0
+            
             if return_value:
                 if (frame_ratio_inverted==dont_skip_frame): #I analyze the frame
+                    frame_analyzed_in_timeslot+=1
+                    print("frame_analyzed_in_timeslot"+str(frame_analyzed_in_timeslot))
+                    #printint details  TEMPORARY
+                    print(timeslot[0])
+                    print(frame_counter/fps)
+                    for machine in machine_list:    
+                        print(machine.name)
+                        print("        x is: "+str(machine.x_machine))
+                        print("        y is: "+str(machine.y_machine))
+                        print("        distance min is: "+str(machine.x_machine))
+                        print("        occupation count  is: "+str(machine.occupation_count))
+                        print("        first timeslot index is: "+ str(machine.first_timeslot_index))
+                        print("        occupation timeslot is: "+str(machine.occupation_timeslot))
+                        print('        current_timeslot_index is: '+ str(machine.current_timeslot_index))
+                        print('        machine status is: '+ str(machine.status))
+                    #end printing details
+
                     print('\n------')
                     print('Frame number ' + str(frame_counter)+' at time ' + str(frame_counter/fps))
                     image = Image.fromarray(frame)
-
                     image,classified = yolo.detect_image(image,machine_list,visual_display) #classified is the list of object detected in the image
                     result = np.asarray(image)
                     for machine in machine_list: #update the availability of all machines
-                        machine.check_availability_machine(classified) 
+                        machine.check_availability_machine(classified,image) 
                         file_writer.writerow([frame_counter,frame_counter/fps,machine.name,machine.status])
-                        status_as_string=' available' if (machine.status==1) else ' occupied'
+                        status_as_string='available' if (machine.status==0) else 'occupied'
                         print('\t'+machine.name+" is "+ status_as_string)
-                    # cv2.putText(result, text=fps, org=(3, 15), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                                # fontScale=0.50, color=(255, 0, 0), thickness=2)
+                        machine.occupation_count+=machine.status
                     if (visual_display): #display the video if asked 
                         cv2.namedWindow("result", cv2.WINDOW_NORMAL)
                         cv2.imshow("result", result)

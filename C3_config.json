@@ -1,3 +1,3 @@
-{"machine_1":{"machine_name":"band_saw_1","x_machine":"315","y_machine":"86","distance_min":"51","status":"1"},
-"machine_3":{"machine_name":"table_1","x_machine":"240","y_machine":"120","distance_min":"100","status":"1"},
-"machine_2":{"machine_name":"track_1","x_machine":"169","y_machine":"211","distance_min":"142","status":"1"}}
+{"machine_1":{"machine_name":"band_saw_1","x_machine":"0.8703","y_machine":"0.2586","distance_min":"0.070833333","status":"1"},
+"machine_3":{"machine_name":"table_1","x_machine":"0.625","y_machine":"0.416","distance_min":"0.20833","status":"1"},
+"machine_2":{"machine_name":"track_1","x_machine":"0.440","y_machine":"0.732","distance_min":"0.29583","status":"1"}}
