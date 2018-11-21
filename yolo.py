@@ -412,5 +412,12 @@ def detect_video(yolo, video_path, frame_ratio,json_path,visual_display,output_p
             else:
                 file_writer.writerow([frame_counter,frame_counter/fps,'ERROR READING FRAME','ERROR READING FRAME'])
             if (frame_counter==number_frame):
+                for machine in machine_list: #update the availability of all machines
+                    machine.occupation_timeslot[machine.current_timeslot_index]=100*machine.occupation_count/frame_analyzed_in_timeslot # Calculation of the occupation ratio as the mean over the timeslot
+                    with open(csv_file_timeslot, 'a', newline='') as csvfile:
+                        file_writer_timeslot = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                        file_writer_timeslot.writerow([machine.current_timeslot_index,machine.name,machine.occupation_timeslot[machine.current_timeslot_index]])
+                    machine.current_timeslot_index+=1 #working the next timeslot
+                    machine.occupation_count=0
                 break
     yolo.close_session()
