@@ -286,9 +286,8 @@ def detect_video(yolo, video_path, frame_ratio,json_path,visual_display,output_p
     timeslot=[0,1800,3600,5400,7200,9000,10800,12600,14400,16200,18000,19800,21600,
             23400,25200,27000,28800,30600,32400,34200,36000,37800,39600,41400,
             43200,45000,46800,48600,50400,52200,54000,55800,57600,59400,61200,
-            63000,64800,66600,6840070200,72000,73800,75600,77400,79200,81000,
+            63000,64800,66600,68400,70200,72000,73800,75600,77400,79200,81000,
             82800,84600]
-    print('timeslot: '+ str(timeslot))
     #removing timeslots that are not on the video from the timeslot list:
     timeslot = [time-60*video_metadata['video_start'] for time in timeslot if ((time-60*video_metadata['video_start'])>0 and (time-60*video_metadata['video_start']) <= 60*(video_metadata['video_end']-video_metadata['video_start'])) ]
     print('timeslot: '+ str(timeslot))
@@ -370,7 +369,7 @@ def detect_video(yolo, video_path, frame_ratio,json_path,visual_display,output_p
             if return_value:
                 if (frame_ratio_inverted==dont_skip_frame): #I analyze the frame
                     frame_analyzed_in_timeslot+=1
-                    print("frame_analyzed_in_timeslot"+str(frame_analyzed_in_timeslot))
+                    print("number of frame analyzed in timeslot "+str(frame_analyzed_in_timeslot))
                     #printint details  TEMPORARY
                     print(timeslot[0])
                     print(frame_counter/fps)
