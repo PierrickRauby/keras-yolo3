@@ -1,8 +1,9 @@
 #!/bin/bash                                                                     
 #script to configure the vm on glcoud
-# to answer prompt automatically use  the following command line to start the script (not tested)
-#      $> yes Y |./your_script
-echo 'This code has never been tested'
+# first let this scrip be exectutable 
+#       chmod +x config.sh
+# to answer prompt automatically use  the following command line to start the script
+#       yes Y |./config.sh
 echo 'installing git'
 sudo apt-get install git
 echo 'installing pip3'
