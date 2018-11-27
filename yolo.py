@@ -205,7 +205,7 @@ class YOLO(object):
             boxed_image = letterbox_image(image, new_image_size)
         image_data = np.array(boxed_image, dtype='float32')
 
-        print("format: "+str(image_data.shape))
+        # print("format: "+str(image_data.shape))
 
         image_data /= 255.
         image_data = np.expand_dims(image_data, 0)  # Add batch dimension.
@@ -217,7 +217,7 @@ class YOLO(object):
                 K.learning_phase(): 0
             })
 
-        print( 'Found {} boxes for {}'.format(len(out_boxes), 'img')) 
+        # print( 'Found {} boxes for {}'.format(len(out_boxes), 'img')) 
         font = ImageFont.truetype(font='font/FiraMono-Medium.otf',
                     size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
         thickness = (image.size[0] + image.size[1]) // 300
@@ -279,7 +279,7 @@ class YOLO(object):
 
 
 ##### VIDEO PROCESSING FUNCTION #####
-def detect_video(yolo, video_path, frame_ratio,json_path,visual_display,output_path=""): #output path will be used for the csv, default the pwd
+def detect_video(yolo, video_path,frame_ratio,json_path,visual_display,output_path=""): #output path will be used for the csv, default the pwd
     import cv2
     video_metadata=parse_video_path(video_path)
     #prepare the time slot list as a list of frame separators:
@@ -290,7 +290,7 @@ def detect_video(yolo, video_path, frame_ratio,json_path,visual_display,output_p
             82800,84600]
     #removing timeslots that are not on the video from the timeslot list:
     timeslot = [time-60*video_metadata['video_start'] for time in timeslot if ((time-60*video_metadata['video_start'])>0 and (time-60*video_metadata['video_start']) <= 60*(video_metadata['video_end']-video_metadata['video_start'])) ]
-    print('timeslot: '+ str(timeslot))
+    # print('timeslot: '+ str(timeslot))
 
     if(json_path==''):
         print('Warning ! No Machine configuration provided')
@@ -316,22 +316,22 @@ def detect_video(yolo, video_path, frame_ratio,json_path,visual_display,output_p
     frame_ratio_inverted=int(1/float(frame_ratio)-1) #to know the number of frame to skip based on the command line ration intup
     frame_counter=0 #number of frame opened since the program start
     frame_analyzed_in_timeslot=0 #counter of the number of fram
-    csv_file=os.getcwd()+'/'+video_metadata['name']+'_'+'frame'+".csv" #file to write the result of the analysis
-    csv_file_timeslot=os.getcwd()+'/'+video_metadata['name']+'_'+"timeslot.csv" #file to write the timeslot results
-    log_file=os.getcwd()+'/'+video_metadata['name']+'_'+"analysis_log.txt" #log file for the metadata
+    csv_file=os.getcwd()+'/results'+'/'+video_metadata['name']+'_'+'frame'+".csv" #file to write the result of the analysis
+    csv_file_timeslot=os.getcwd()+'/results'+'/'+video_metadata['name']+'_'+"timeslot.csv" #file to write the timeslot results
+    log_file=os.getcwd()+'/results'+'/'+video_metadata['name']+'_'+"analysis_log.txt" #log file for the metadata
     ### End of variable definition ###
     #displaying metadata
-    print('\n------')
-    print('Video metadata:')
-    print("\tstart: "+ str(60*video_metadata['video_start'])+'s')
-    print("\tstart: "+ str(60*video_metadata['video_end'])+'s')
-    print("\tduration: "+ str(video_length)+'s')
-    print("\tduration: "+ str(video_length)+'s')
-    print("\tnumber_frame:" + str(number_frame))
-    print("\tfps:" + str(fps))    
-    print('Considering 1 frame every ' + str(frame_ratio_inverted+1)+" frames")
-    print('metadata infor stored in: "'+log_file+'"')
-    print('analysis result stored in: "'+csv_file+'"')
+    # print('\n------')
+    # print('Video metadata:')
+    # print("\tstart: "+ str(60*video_metadata['video_start'])+'s')
+    # print("\tstart: "+ str(60*video_metadata['video_end'])+'s')
+    # print("\tduration: "+ str(video_length)+'s')
+    # print("\tduration: "+ str(video_length)+'s')
+    # print("\tnumber_frame:" + str(number_frame))
+    # print("\tfps:" + str(fps))    
+    # print('Considering 1 frame every ' + str(frame_ratio_inverted+1)+" frames")
+    # print('metadata infor stored in: "'+log_file+'"')
+    # print('analysis result stored in: "'+csv_file+'"')
     #writting the metadata into a log file 
     log_file_fd=open(log_file,'w')
     log_file_fd.write('Video metadata:\n')
@@ -355,7 +355,7 @@ def detect_video(yolo, video_path, frame_ratio,json_path,visual_display,output_p
             frame_counter+=1
             return_value, frame = vid.read() #no test on return_value, maybe a way tso detect the end of the video
             if(frame_counter/fps>timeslot[0]): #si le temps ecoulé de l'analyse est superieur a mon time slot alors je reinitialise le timeslot 
-                print('NEXT TIME SLOT')
+                # print('NEXT TIME SLOT')
                 for machine in machine_list: #update the availability of all machines
                     machine.occupation_timeslot[machine.current_timeslot_index]=100*machine.occupation_count/frame_analyzed_in_timeslot # Calculation of the occupation ratio as the mean over the timeslot
                     with open(csv_file_timeslot, 'a', newline='') as csvfile:
@@ -369,20 +369,20 @@ def detect_video(yolo, video_path, frame_ratio,json_path,visual_display,output_p
             if return_value:
                 if (frame_ratio_inverted==dont_skip_frame): #I analyze the frame
                     frame_analyzed_in_timeslot+=1
-                    print("number of frame analyzed in timeslot "+str(frame_analyzed_in_timeslot))
+                    # print("number of frame analyzed in timeslot "+str(frame_analyzed_in_timeslot))
                     #printint details  TEMPORARY
-                    print(timeslot[0])
-                    print(frame_counter/fps)
-                    for machine in machine_list:    
-                        print(machine.name)
-                        print("        x is: "+str(machine.x_machine))
-                        print("        y is: "+str(machine.y_machine))
-                        print("        distance min is: "+str(machine.x_machine))
-                        print("        occupation count  is: "+str(machine.occupation_count))
-                        print("        first timeslot index is: "+ str(machine.first_timeslot_index))
-                        print("        occupation timeslot is: "+str(machine.occupation_timeslot))
-                        print('        current_timeslot_index is: '+ str(machine.current_timeslot_index))
-                        print('        machine status is: '+ str(machine.status))
+                    # print(timeslot[0])
+                    # print(frame_counter/fps)
+                    # for machine in machine_list:    
+                        # print(machine.name)
+                        # print("        x is: "+str(machine.x_machine))
+                        # print("        y is: "+str(machine.y_machine))
+                        # print("        distance min is: "+str(machine.x_machine))
+                        # print("        occupation count  is: "+str(machine.occupation_count))
+                        # print("        first timeslot index is: "+ str(machine.first_timeslot_index))
+                        # print("        occupation timeslot is: "+str(machine.occupation_timeslot))
+                        # print('        current_timeslot_index is: '+ str(machine.current_timeslot_index))
+                        # print('        machine status is: '+ str(machine.status))
                     #end printing details
 
                     print('\n------')
@@ -394,7 +394,7 @@ def detect_video(yolo, video_path, frame_ratio,json_path,visual_display,output_p
                         machine.check_availability_machine(classified,image) 
                         file_writer.writerow([frame_counter,frame_counter/fps,machine.name,machine.status])
                         status_as_string='available' if (machine.status==0) else 'occupied'
-                        print('\t'+machine.name+" is "+ status_as_string)
+                        # print('\t'+machine.name+" is "+ status_as_string)
                         machine.occupation_count+=machine.status
                     if (visual_display): #display the video if asked 
                         cv2.namedWindow("result", cv2.WINDOW_NORMAL)
